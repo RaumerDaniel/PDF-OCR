@@ -1,0 +1,21 @@
+[project]
+name = "pdf-ocr"
+dynamic = ["version"]
+description = "Ergänzt PDFs ohne Textebene lokal um eine OCR-Textebene (Kontextmenü + CLI, Windows)"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+dependencies = ["ocrmypdf>=17.13"]
+
+[project.scripts]
+pdf-ocr = "pdf_ocr.cli:main"
+
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.dynamic]
+version = { attr = "pdf_ocr.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]

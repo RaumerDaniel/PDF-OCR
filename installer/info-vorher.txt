@@ -1,0 +1,30 @@
+﻿PDF-OCR - was dieses Setup macht
+=================================
+
+PDF-OCR ergänzt PDFs ohne Textebene (Scans, Posteingang, Mail-Anhänge) um eine
+durchsuchbare OCR-Textebene. Alles läuft lokal auf diesem Rechner, nichts wird
+hochgeladen.
+
+Das Setup
+  - installiert PDF-OCR nur für Ihren Benutzer
+    (%LOCALAPPDATA%\Programs\PDF-OCR), ohne Administratorrechte;
+  - legt auf Wunsch Kontextmenü-Einträge an (Rechtsklick auf PDF-Dateien
+    und Ordner, Eintrag unter HKEY_CURRENT_USER). Unter Windows 11 stehen
+    sie unter "Weitere Optionen anzeigen" (Umschalt+F10);
+  - prüft, ob Tesseract OCR vorhanden ist. Fehlt es, kann das Setup es per
+    winget installieren. Nur dafür fragt Windows nach Administratorrechten.
+
+Mitgeliefert sind Python, OCRmyPDF und die Tesseract-Sprachdaten für Deutsch
+und Englisch. Ghostscript wird nicht benötigt.
+
+Verhalten bei der Verarbeitung:
+  - Übersprungen werden PDF/A-Dateien, schon verarbeitete PDFs, digital
+    signierte, verschlüsselte PDFs und PDFs mit eingebetteten Dateien
+    (z.B. E-Rechnungen ZUGFeRD/Factur-X).
+  - Alle anderen PDFs bekommen eine OCR-Textebene, werden optimiert und als
+    PDF/A-2b gespeichert. Das Original wird erst ersetzt, wenn alles geklappt
+    hat. Erstell- und Änderungsdatum bleiben erhalten.
+  - Ein Protokoll liegt unter %LOCALAPPDATA%\PDF-OCR\pdf-ocr.log.
+
+Quellcode (MIT-Lizenz) und Lizenzen der verwendeten Komponenten: siehe
+README.md und THIRD_PARTY_NOTICES.md im Programmordner.

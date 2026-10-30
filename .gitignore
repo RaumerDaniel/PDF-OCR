@@ -1,0 +1,6 @@
+.venv/
+build/
+dist/
+tessdata/*.traineddata
+__pycache__/
+*.pyc

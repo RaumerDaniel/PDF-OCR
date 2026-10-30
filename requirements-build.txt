@@ -1,0 +1,5 @@
+# Laufzeit
+ocrmypdf==17.13.0
+# Build
+pyinstaller>=6.10
+pip-licenses>=5
