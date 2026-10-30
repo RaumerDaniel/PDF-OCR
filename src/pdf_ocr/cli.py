@@ -34,6 +34,16 @@ log = logging.getLogger("pdf_ocr")
 # Ausgabe
 # --------------------------------------------------------------------------
 
+# Bei umgeleiteter Ausgabe (Datei, CI-Log) UTF-8 schreiben statt der ANSI-Codepage,
+# sonst werden Umlaute zu "?".
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        if _stream is not None and not _stream.isatty():
+            _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, OSError, ValueError):
+        pass
+
+
 def _console():
     try:
         from rich.console import Console

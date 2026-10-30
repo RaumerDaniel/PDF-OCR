@@ -99,6 +99,64 @@ def _list_langs(tesseract: Path, env: dict) -> list[str]:
     return sorted({ln.strip() for ln in lines[1:] if ln.strip() and " " not in ln.strip()})
 
 
+# Minimal-Konfigurationen, die OCRmyPDF bei Tesseract anfordert (Inhalt wie im
+# Tesseract-Repository tessdata/configs, Apache-2.0). Nur Fallback, falls die
+# Tesseract-Installation keine eigenen configs mitbringt.
+_FALLBACK_CONFIGS = {
+    "hocr": "tessedit_create_hocr 1\nhocr_font_info 0\n",
+    "txt": "tessedit_create_txt 1\n",
+    "pdf": "tessedit_create_pdf 1\n",
+}
+
+
+def _system_tessdata(tess: Path, env: dict) -> Path | None:
+    """tessdata-Ordner der Tesseract-Installation (für configs/, pdf.ttf)."""
+    try:
+        out = subprocess.run(
+            [str(tess), "--list-langs"], capture_output=True, text=True, env=env,
+            timeout=30, creationflags=_no_window(),
+        )
+        first = (out.stdout + out.stderr).splitlines()[0]
+        if '"' in first:
+            p = Path(first.split('"')[1])
+            if p.is_dir():
+                return p
+    except (OSError, subprocess.SubprocessError, IndexError):
+        pass
+    for cand in (env.get("TESSDATA_PREFIX"), tess.parent / "tessdata"):
+        if cand and Path(cand).is_dir():
+            return Path(cand)
+    return None
+
+
+def _prepare_tessdata(bundled: Path, system: Path | None) -> Path:
+    """Arbeits-tessdata unter %LOCALAPPDATA%\\PDF-OCR\\tessdata zusammenstellen.
+
+    Tesseract sucht Sprachdaten UND Konfigurationsdateien (configs/hocr usw.)
+    im selben Ordner (TESSDATA_PREFIX). Mitgeliefert sind nur die Sprachdaten,
+    die configs kommen aus der Tesseract-Installation.
+    """
+    from pdf_ocr.osutil import data_dir
+
+    target = data_dir() / "tessdata"
+    (target / "configs").mkdir(parents=True, exist_ok=True)
+    for src in bundled.glob("*.traineddata"):
+        dst = target / src.name
+        if not dst.exists() or dst.stat().st_size != src.stat().st_size:
+            shutil.copyfile(src, dst)
+    if system is not None and system.resolve() != target.resolve():
+        for sub in ("configs", "tessconfigs"):
+            if (system / sub).is_dir():
+                shutil.copytree(system / sub, target / sub, dirs_exist_ok=True)
+        if (system / "pdf.ttf").is_file() and not (target / "pdf.ttf").exists():
+            shutil.copyfile(system / "pdf.ttf", target / "pdf.ttf")
+    for name, content in _FALLBACK_CONFIGS.items():
+        f = target / "configs" / name
+        if not f.exists():
+            f.write_text(content, encoding="ascii")
+    return target
+
+
 def check(languages: list[str], apply_env: bool = True) -> DepReport:
     """Sucht Tesseract + Sprachdaten. Mit apply_env=True werden PATH und
     TESSDATA_PREFIX für diesen Prozess (und damit für OCRmyPDF) gesetzt."""
@@ -129,14 +187,20 @@ def check(languages: list[str], apply_env: bool = True) -> DepReport:
     env = dict(os.environ)
     bundled = resource_dir() / "tessdata"
     chosen_langs: list[str] = []
-    if bundled.is_dir():
-        env_b = dict(env, TESSDATA_PREFIX=str(bundled))
-        langs_b = _list_langs(tess, env_b)
-        if all(lang in langs_b for lang in languages):
-            rep.tessdata, rep.tessdata_source = bundled, "mitgeliefert"
-            chosen_langs = langs_b
-            if apply_env:
-                os.environ["TESSDATA_PREFIX"] = str(bundled)
+    if bundled.is_dir() and any(bundled.glob("*.traineddata")):
+        try:
+            merged = _prepare_tessdata(bundled, _system_tessdata(tess, env))
+        except OSError as e:
+            merged = None
+            rep.problems.append(f"Sprachdaten-Ordner konnte nicht angelegt werden: {e}")
+        if merged is not None:
+            env_b = dict(env, TESSDATA_PREFIX=str(merged))
+            langs_b = _list_langs(tess, env_b)
+            if all(lang in langs_b for lang in languages):
+                rep.tessdata, rep.tessdata_source = merged, "mitgeliefert"
+                chosen_langs = langs_b
+                if apply_env:
+                    os.environ["TESSDATA_PREFIX"] = str(merged)
     if rep.tessdata is None:
         langs_s = _list_langs(tess, env)
         chosen_langs = langs_s
