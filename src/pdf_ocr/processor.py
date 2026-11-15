@@ -13,6 +13,8 @@ Ablauf pro Datei (entspricht der früheren ocr.bat, mit Sicherheitsnetz):
   4. Metadaten in der Kopie bereinigen (wie früher exiftool):
        Info-Dictionary: /Creator, /Producer
        XMP: dc:creator, xmp:CreatorTool, pdf:Producer
+       außerdem ein leeres Formularverzeichnis (AcroForm ohne Felder), das
+       manche Scanner mitschreiben und das PDF/A ohne Ghostscript verhindert
   5. OCRmyPDF: Texterkennung (nur Seiten ohne Text), Optimierung, PDF/A-2b.
   6. Ergebnis prüfen, dann Original atomar ersetzen.
   7. Zeitstempel wiederherstellen.
@@ -121,8 +123,43 @@ def strip_metadata(src: Path, dst: Path) -> list[str]:
                 if key in meta:
                     del meta[key]
                     removed.append(f"XMP {key}")
+        if _is_empty_acroform(pdf):
+            del pdf.Root["/AcroForm"]
+            removed.append("leeres Formularverzeichnis (AcroForm ohne Felder)")
         pdf.save(dst)
     return removed
+
+
+def _is_empty_acroform(pdf: pikepdf.Pdf) -> bool:
+    """True bei einem Formularverzeichnis ohne jedes Feld.
+
+    Manche Scanner (z.B. HP OfficeJet) schreiben ein leeres /AcroForm in jede
+    PDF. Es hat keine Funktion, verhindert aber, dass OCRmyPDF ohne
+    Ghostscript das Ergebnis als PDF/A bestätigen kann. Formulare mit Feldern,
+    XFA-Formulare oder Signatur-Kennzeichen bleiben unangetastet.
+    """
+    acro = pdf.Root.get("/AcroForm")
+    if acro is None or not isinstance(acro, pikepdf.Dictionary):
+        return False
+    if "/XFA" in acro:
+        return False
+    try:
+        if int(acro.get("/SigFlags", 0)):
+            return False
+    except (TypeError, ValueError):
+        return False
+    fields = acro.get("/Fields")
+    if fields is not None and len(fields) > 0:
+        return False
+    # Sicherheitshalber: keine Widget-Annotationen (Formularfelder) auf den Seiten
+    for page in pdf.pages:
+        for annot in page.get("/Annots", []) or []:
+            try:
+                if annot.get("/Subtype") == pikepdf.Name.Widget:
+                    return False
+            except Exception:
+                return False
+    return True
 
 
 # --------------------------------------------------------------------------

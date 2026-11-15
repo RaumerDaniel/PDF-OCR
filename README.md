@@ -19,7 +19,9 @@ nachvollziehbare Konsolenausgabe.
      Das eingebettete XML darf nicht verloren gehen.
 2. **Arbeitskopie** im Temp-Ordner. Das Original bleibt bis zum Schluss unberührt.
 3. **Metadaten bereinigen:** Creator/Producer und XMP-Creator/CreatorTool
-   werden entfernt (früher per exiftool).
+   werden entfernt (früher per exiftool). Ein leeres
+   Formularverzeichnis, wie es manche Scanner mitschreiben, wird ebenfalls
+   entfernt, damit PDF/A ohne Ghostscript gelingt. Echte Formulare bleiben.
 4. **OCRmyPDF:** Texterkennung (Deutsch + Englisch) nur für Seiten ohne Text,
    Optimierung, Ausgabe als **PDF/A-2b**. Gelingt PDF/A ausnahmsweise nicht,
    entsteht ein normales PDF mit Textebene, und die Ausgabe weist darauf hin.
